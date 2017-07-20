@@ -73,6 +73,8 @@
 #pragma mark - Actions
 
 - (IBAction)doCancel:(id)sender {
+    NSError *cancelError = [[NSError alloc] initWithDomain:@"com.evernote.auth" code:1000 userInfo:@{NSLocalizedDescriptionKey:@"Canceled by user"}];
+    [self.delegate oauthViewController:self didFailWithError:cancelError];
     [self dismissSheet];
 }
 
