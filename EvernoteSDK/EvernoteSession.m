@@ -46,9 +46,7 @@
 
 #if TARGET_OS_IPHONE || TARGET_IPHONE_SIMULATOR
 @property (nonatomic, strong) UIViewController *viewController;
-@property (nonatomic, strong) ENOAuthViewController *oauthViewController;
 #else
-@property (nonatomic, strong) ENOAuthWindowController *oauthWindowController;
 @property (nonatomic, strong) NSWindow *window;
 #endif
 
@@ -634,37 +632,6 @@
         // the en:// URL scheme, fall back on WebKit for obtaining the OAuth token.
         // This minimizes the chance that the user will have to enter his or
         // her credentials in order to authorize the application.
-#if TARGET_OS_IPHONE || TARGET_IPHONE_SIMULATOR
-        UIDevice *device = [UIDevice currentDevice];
-        if([self isEvernoteInstalled] == NO) {
-            self.isMultitaskLoginDisabled = YES;
-        }
-        [self verifyCFBundleURLSchemes];
-        if ([device respondsToSelector:@selector(isMultitaskingSupported)] &&
-            [device isMultitaskingSupported] &&
-            self.isMultitaskLoginDisabled==NO) {
-            self.state = ENSessionAuthenticationInProgress;
-            NSString* openURL = [NSString stringWithFormat:@"en://link-sdk/consumerKey/%@/profileName/%@/authorization/%@",self.consumerKey,self.currentProfile,parameters[@"oauth_token"]];
-            BOOL success = [[UIApplication sharedApplication] openURL:[NSURL URLWithString:openURL]];
-            if(success == NO) {
-                // The Evernote app does not support the full URL, falling back
-                self.isMultitaskLoginDisabled = YES;
-                // Restart oAuth dance
-                [self startOauthAuthentication];
-            }
-        }
-        else {
-            // Open a modal ENOAuthViewController on top of our given view controller,
-            // and point it at the proper Evernote web page so the user can authorize us.
-            NSString *userAuthURLString = [self userAuthorizationURLStringWithParameters:parameters];
-            NSURL *userAuthURL = [NSURL URLWithString:userAuthURLString];
-            [self openOAuthViewControllerWithURL:userAuthURL];
-        }
-#else
-        NSString *userAuthURLString = [self userAuthorizationURLStringWithParameters:parameters];
-        NSURL *userAuthURL = [NSURL URLWithString:userAuthURLString];
-        [self openOAuthDialogWithURL:userAuthURL];
-#endif
     }
     else {
         // OAuth step 4: final callback, with our real token
@@ -699,65 +666,6 @@
     self.receivedData = nil;
     self.response = nil;
 }
-
-#if TARGET_OS_IPHONE || TARGET_IPHONE_SIMULATOR
-- (void)openOAuthViewControllerWithURL:(NSURL *)authorizationURL
-{
-    BOOL isSwitchAllowed = NO;
-    if([self.profiles count]>1) {
-        isSwitchAllowed = YES;
-    }
-    else {
-        isSwitchAllowed = NO;
-    }
-    if(!self.isSwitchingInProgress ) {
-        self.oauthViewController = [[ENOAuthViewController alloc] initWithAuthorizationURL:authorizationURL
-                                                                       oauthCallbackPrefix:[self oauthCallback]
-                                                                               profileName:self.currentProfile
-                                                                            allowSwitching:isSwitchAllowed
-                                                                                  delegate:self];
-        UINavigationController *oauthNavController = [[UINavigationController alloc] initWithRootViewController:self.oauthViewController];
-
-        // use a formsheet on iPad
-        if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {
-            self.oauthViewController.modalPresentationStyle = UIModalPresentationFormSheet;
-            oauthNavController.modalPresentationStyle = UIModalPresentationFormSheet;
-        }
-        [self.viewController presentViewController:oauthNavController animated:YES completion:^{
-            ;
-        }];
-    }
-    else {
-        [self.oauthViewController updateUIForNewProfile:self.currentProfile withAuthorizationURL:authorizationURL];
-        self.isSwitchingInProgress = NO;
-
-    }
-}
-#else
-- (void)openOAuthDialogWithURL:(NSURL *)authorizationURL {
-    BOOL isSwitchAllowed = NO;
-    if([self.profiles count]>1) {
-        isSwitchAllowed = YES;
-    }
-    else {
-        isSwitchAllowed = NO;
-    }
-    if(!self.isSwitchingInProgress ) {
-
-        self.oauthWindowController = [[ENOAuthWindowController alloc] initWithAuthorizationURL:authorizationURL
-                                                                           oauthCallbackPrefix:[self oauthCallback]
-                                                                                   profileName:self.currentProfile
-                                                                                allowSwitching:isSwitchAllowed  
-                                                                                      delegate:self];
-        [self.oauthWindowController presentSheetForWindow:self.window];
-    }
-    else {
-        [self.oauthWindowController updateUIForNewProfile:self.currentProfile withAuthorizationURL:authorizationURL];
-        self.isSwitchingInProgress = NO;        
-    }
-}
-
-#endif
 
 - (void)saveCredentialsWithEdamUserId:(NSString *)edamUserId
                          noteStoreUrl:(NSString *)noteStoreUrl
